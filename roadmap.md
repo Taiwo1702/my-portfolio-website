@@ -1,0 +1,3 @@
+- [ ] Build AI-powered portfolio project matcher using Lovable AI Gateway.
+- [ ] Fix the home page JSX icon type error and verify the portfolio build.
+- [ ] Verify matcher validation and page behavior; run relevant tests and commit the changes.

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDown,
   ArrowDownRight,
@@ -12,6 +13,7 @@ import {
   Code2,
   Film,
   Layers3,
+  LoaderCircle,
   Mail,
   Menu,
   MessageSquareText,
@@ -23,6 +25,7 @@ import {
   Sparkles,
   Workflow,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +33,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import studioImage from "@/assets/portfolio-studio.jpg";
 import productFilmImage from "@/assets/concept-product-film.jpg";
+import { recommendPortfolioProjects } from "@/lib/project-matcher.functions";
+import type { PortfolioRecommendation } from "@/lib/project-matcher.shared";
 
 const navLinks = [
   { label: "About", href: "#about" },
@@ -228,6 +233,11 @@ function PortfolioHome() {
   const [activeSection, setActiveSection] = useState("home");
   const [formState, setFormState] = useState<"idle" | "sent" | "error">("idle");
   const [formBusy, setFormBusy] = useState(false);
+  const [matcherNeed, setMatcherNeed] = useState("");
+  const [matcherResults, setMatcherResults] = useState<PortfolioRecommendation[] | null>(null);
+  const [matcherBusy, setMatcherBusy] = useState(false);
+  const [matcherError, setMatcherError] = useState<string | null>(null);
+  const getRecommendations = useServerFn(recommendPortfolioProjects);
   const visibleProjects = useMemo(
     () => (filter === "All work" ? projects : projects.filter((project) => project.category === filter)),
     [filter],
@@ -271,6 +281,22 @@ function PortfolioHome() {
       setFormState("error");
     } finally {
       window.setTimeout(() => setFormBusy(false), 350);
+    }
+  }
+
+  async function handleMatcherSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMatcherBusy(true);
+    setMatcherError(null);
+    setMatcherResults(null);
+    try {
+      const result = await getRecommendations({ data: { need: matcherNeed } });
+      setMatcherResults(result.recommendations);
+      setMatcherError(result.error);
+    } catch {
+      setMatcherError("Recommendations are temporarily unavailable. Please try again.");
+    } finally {
+      setMatcherBusy(false);
     }
   }
 
@@ -331,10 +357,10 @@ function PortfolioHome() {
             </div>
             <div className="mt-12 grid max-w-[560px] grid-cols-1 gap-3 border-t border-border/70 pt-5 sm:grid-cols-3 sm:gap-5">
               {[
-                [Workflow, "AI automation", "& intelligent agents"],
-                [Film, "AI video", "& animation"],
-                [Monitor, "Modern", "website design"],
-              ].map(([Icon, lineOne, lineTwo]) => (
+                { Icon: Workflow, lineOne: "AI automation", lineTwo: "& intelligent agents" },
+                { Icon: Film, lineOne: "AI video", lineTwo: "& animation" },
+                { Icon: Monitor, lineOne: "Modern", lineTwo: "website design" },
+              ].map(({ Icon, lineOne, lineTwo }) => (
                 <div key={String(lineOne)} className="flex items-center gap-3">
                   <span className="grid size-9 shrink-0 place-items-center border border-border bg-surface/70 text-primary"><Icon className="size-4" /></span>
                   <span className="text-[11px] leading-[1.5] text-muted-foreground"><strong className="block font-semibold text-foreground">{String(lineOne)}</strong>{String(lineTwo)}</span>
@@ -419,7 +445,7 @@ function PortfolioHome() {
                   <div className="flex items-start justify-between md:block"><p className="font-display text-sm text-primary">{service.num}</p><Icon className="size-5 text-muted-foreground transition-colors group-hover:text-primary md:mt-6" /></div>
                   <div>
                     <h3 className="whitespace-pre-line font-display text-[25px] font-medium leading-[1.25] sm:text-[29px]">{service.title}</h3>
-                    <a href={`#contact?service=${encodeURIComponent(service.subject)}`} onClick={() => window.dispatchEvent(new CustomEvent("contact-service", { detail: service.subject }))} className="mt-5 inline-flex items-center gap-2 text-[12px] font-semibold text-primary transition-all hover:gap-3">{service.cta}<ArrowRight className="size-3.5" /></a>
+                    <a href="#contact" className="mt-5 inline-flex items-center gap-2 text-[12px] font-semibold text-primary transition-all hover:gap-3">{service.cta}<ArrowRight className="size-3.5" /></a>
                   </div>
                   <div>
                     <p className="max-w-[500px] text-[13px] leading-6 text-muted-foreground sm:text-sm">{service.description}</p>
@@ -441,6 +467,33 @@ function PortfolioHome() {
           <div className="mt-7 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
             <div><h2 className="font-display text-4xl font-medium leading-tight sm:text-5xl">A closer look at <span className="text-electric">the ideas.</span></h2><p className="mt-4 max-w-[560px] text-sm leading-6 text-muted-foreground">A range of automation, creative production and web experience concepts—each shaped around a practical problem to solve.</p></div>
             <a href="#contact" className="inline-flex items-center gap-2 text-xs font-semibold text-foreground transition-colors hover:text-primary">Have something in mind? <ArrowUpRight className="size-4" /></a>
+          </div>
+          <div className="mt-9 grid border border-border bg-surface/60 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="border-b border-border p-5 sm:p-7 lg:border-b-0 lg:border-r lg:p-8">
+              <div className="flex items-center gap-2 text-primary"><Sparkles className="size-4" /><p className="text-[10px] font-semibold tracking-[0.16em]">AI PROJECT MATCHER</p></div>
+              <h3 className="mt-4 font-display text-2xl font-medium">What kind of creative work do you need?</h3>
+              <p className="mt-2 text-[12px] leading-5 text-muted-foreground">Describe the project, and I&apos;ll suggest portfolio concepts that may be relevant.</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {["Automate new lead follow-ups", "Create a cinematic product video", "Design a modern business website"].map((example) => <Button key={example} type="button" variant="outline" size="sm" onClick={() => { setMatcherNeed(example); setMatcherResults(null); setMatcherError(null); }} className="h-auto min-h-8 whitespace-normal rounded-sm px-2.5 py-1.5 text-left text-[10px] leading-4">{example}</Button>)}
+              </div>
+              <form onSubmit={handleMatcherSubmit} className="mt-4">
+                <label htmlFor="project-matcher-need" className="sr-only">Describe the creative work you need</label>
+                <Textarea id="project-matcher-need" value={matcherNeed} onChange={(event) => { setMatcherNeed(event.target.value); setMatcherError(null); }} maxLength={700} minLength={12} required placeholder="For example: I need an assistant that can answer customer calls and help schedule appointments…" rows={4} className="min-h-[112px] resize-y rounded-sm border-border bg-background px-3 py-3 text-[12px] leading-5" />
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><p className="max-w-[280px] text-[10px] leading-4 text-muted-foreground">Keep your description focused on the project; don&apos;t include confidential details.</p><Button type="submit" disabled={matcherBusy || matcherNeed.trim().length < 12} className="h-10 shrink-0 rounded-sm px-4 text-[11px]">{matcherBusy ? "Finding matches…" : "Find project matches"}{matcherBusy ? <LoaderCircle className="animate-spin"/> : <ArrowRight/>}</Button></div>
+              </form>
+            </div>
+            <div aria-live="polite" className="min-h-[250px] p-5 sm:p-7 lg:p-8">
+              <div className="flex items-center justify-between gap-3 border-b border-border pb-4"><div><p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground">SUGGESTED CONCEPTS</p><p className="mt-1 text-[11px] text-muted-foreground">Matched to your project description</p></div><span className="grid size-8 place-items-center border border-border text-primary"><Sparkles className="size-3.5"/></span></div>
+              {matcherBusy && <div role="status" className="flex min-h-[170px] items-center gap-3 text-[12px] text-muted-foreground"><LoaderCircle className="size-4 animate-spin text-primary"/>Considering the closest portfolio concepts…</div>}
+              {!matcherBusy && matcherError && <div role="alert" className="mt-5 border border-destructive/40 bg-destructive/10 p-4 text-[12px] leading-5 text-foreground">{matcherError}</div>}
+              {!matcherBusy && matcherResults && matcherResults.length === 0 && <p className="mt-5 text-[12px] leading-6 text-muted-foreground">No close matches surfaced. Try describing the outcome, the format you need, or the tools involved.</p>}
+              {!matcherBusy && matcherResults && matcherResults.length > 0 && <div className="mt-2 divide-y divide-border">{matcherResults.map((recommendation) => {
+                const project = projects.find((item) => item.id === recommendation.projectId);
+                if (!project) return null;
+                return <button key={project.id} type="button" onClick={() => setSelectedProject(project)} className="group w-full cursor-pointer py-4 text-left first:pt-4"><span className="flex items-start justify-between gap-3"><span><span className="text-[9px] font-semibold tracking-[0.12em] text-primary">{project.category.toUpperCase()}</span><span className="mt-1 block font-display text-base font-medium text-foreground transition-colors group-hover:text-electric">{project.title}</span></span><ArrowUpRight className="mt-1 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"/></span><span className="mt-2 block text-[11px] leading-5 text-muted-foreground">{recommendation.reason}</span></button>;
+              })}</div>}
+              {!matcherBusy && !matcherError && matcherResults === null && <div className="flex min-h-[170px] items-center"><div><p className="font-display text-lg text-foreground">A more relevant place to start.</p><p className="mt-2 max-w-[360px] text-[12px] leading-5 text-muted-foreground">Share a few details to find the portfolio concepts closest to what you have in mind.</p></div></div>}
+            </div>
           </div>
           <div className="mt-9 flex flex-wrap gap-2" role="group" aria-label="Filter projects">
             {projectFilters.map((item) => <Button key={item} type="button" size="sm" variant={filter === item ? "default" : "outline"} onClick={() => setFilter(item)} className="h-9 rounded-sm px-3.5 text-[11px]">{item}</Button>)}
